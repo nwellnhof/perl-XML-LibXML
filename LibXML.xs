@@ -199,7 +199,7 @@ SV* PROXY_NODE_REGISTRY_MUTEX = NULL;
 #endif  /* WITH_SERRORS */
 
 #ifdef WITH_SERRORS
-void
+static void
 LibXML_struct_error_callback(SV * saved_error, SV * libErr )
 {
 
@@ -239,7 +239,7 @@ LibXML_struct_error_callback(SV * saved_error, SV * libErr )
     LEAVE;
 }
 
-void
+static void
 LibXML_struct_error_handler(SV * saved_error, xmlErrorPtr error )
 {
     const char * CLASS = "XML::LibXML::LibError";
@@ -251,7 +251,7 @@ LibXML_struct_error_handler(SV * saved_error, xmlErrorPtr error )
 }
 
 
-void
+static void
 LibXML_flat_handler(SV * saved_error, const char * msg, ...)
 {
     SV* sv;
@@ -270,7 +270,7 @@ LibXML_flat_handler(SV * saved_error, const char * msg, ...)
 
 /* If threads-support is working correctly in libxml2 then
  * this method will be called with the correct thread-context */
-void
+static void
 LibXML_error_handler_ctx(void * ctxt, const char * msg, ...)
 {
 	va_list args;
@@ -447,7 +447,7 @@ LibXML_reader_error_handler(void * ctxt,
 }
 #endif /* !defined WITH_SERRORS */
 
-SV *
+static SV *
 LibXML_get_reader_error_data(xmlTextReaderPtr reader)
 {
   SV * saved_error = NULL;
@@ -495,7 +495,7 @@ LibXML_NodeToSv(HV * real_obj, xmlNodePtr real_doc)
  * IO callbacks
  * **************************************************************** */
 
-int
+static int
 LibXML_read_perl (SV * ioref, char * buffer, int len)
 {
     dTHX;
@@ -567,14 +567,14 @@ LibXML_read_perl (SV * ioref, char * buffer, int len)
 }
 
 /* used only by Reader */
-int
+static int
 LibXML_close_perl (SV * ioref)
 {
   SvREFCNT_dec(ioref);
   return 0;
 }
 
-int
+static int
 LibXML_input_match(char const * filename)
 {
     int results;
@@ -622,7 +622,7 @@ LibXML_input_match(char const * filename)
     return results;
 }
 
-void *
+static void *
 LibXML_input_open(char const * filename)
 {
     SV * results;
@@ -664,7 +664,7 @@ LibXML_input_open(char const * filename)
     return (void *)results;
 }
 
-int
+static int
 LibXML_input_read(void * context, char * buffer, int len)
 {
     STRLEN res_len;
@@ -730,7 +730,7 @@ LibXML_input_read(void * context, char * buffer, int len)
     return res_len;
 }
 
-void
+static void
 LibXML_input_close(void * context)
 {
     SV * ctxt;
@@ -763,7 +763,7 @@ LibXML_input_close(void * context)
     }
 }
 
-int
+static int
 LibXML_output_write_handler(void * ioref, char * buffer, int len)
 {
     if ( buffer != NULL && len > 0) {
@@ -796,13 +796,13 @@ LibXML_output_write_handler(void * ioref, char * buffer, int len)
     return len;
 }
 
-int
+static int
 LibXML_output_close_handler( void * handler )
 {
     return 1;
 }
 
-xmlParserInputPtr
+static xmlParserInputPtr
 LibXML_load_external_entity(
         const char * URL,
         const char * ID,
@@ -902,7 +902,7 @@ LibXML_load_external_entity(
  * Helper functions
  * **************************************************************** */
 
-HV*
+static HV*
 LibXML_init_parser( SV * self, xmlParserCtxtPtr ctxt ) {
     /* we fetch all switches and callbacks from the hash */
     HV* real_obj = NULL;
@@ -961,7 +961,7 @@ LibXML_init_parser( SV * self, xmlParserCtxtPtr ctxt ) {
     return real_obj;
 }
 
-void
+static void
 LibXML_cleanup_parser() {
 #ifndef WITH_SERRORS
     xmlGetWarningsDefaultValue = 0;
@@ -972,7 +972,7 @@ LibXML_cleanup_parser() {
     }
 }
 
-int
+static int
 LibXML_test_node_name( xmlChar * name )
 {
     xmlChar * cur = name;

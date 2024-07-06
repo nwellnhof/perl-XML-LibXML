@@ -1748,7 +1748,7 @@ _parse_string(self, string, dir = &PL_sv_undef)
             ctxt->directory = NULL;
             well_formed = ctxt->wellFormed;
             valid = ctxt->valid;
-            validate = ctxt->validate;
+            validate = ctxt->options & XML_PARSE_DTDVALID ? 1 : 0;
             real_doc = ctxt->myDoc;
             ctxt->myDoc = NULL;
             xmlFreeParserCtxt(ctxt);
@@ -1901,7 +1901,7 @@ _parse_fh(self, fh, dir = &PL_sv_undef)
             ctxt->directory = NULL;
             well_formed = ctxt->wellFormed;
             valid = ctxt->valid;
-            validate = ctxt->validate;
+            validate = ctxt->options & XML_PARSE_DTDVALID ? 1 : 0;
             real_doc = ctxt->myDoc;
             ctxt->myDoc = NULL;
             xmlFreeParserCtxt(ctxt);
@@ -2050,7 +2050,7 @@ _parse_file(self, filename_sv)
 
             well_formed = ctxt->wellFormed;
             valid = ctxt->valid;
-            validate = ctxt->validate;
+            validate = ctxt->options & XML_PARSE_DTDVALID ? 1 : 0;
             real_doc = ctxt->myDoc;
             ctxt->myDoc = NULL;
             xmlFreeParserCtxt(ctxt);

@@ -939,21 +939,6 @@ LibXML_init_parser( SV * self, xmlParserCtxtPtr ctxt ) {
         }
         if (ctxt) xmlCtxtUseOptions(ctxt, parserOptions ); /* Note: sets ctxt->linenumbers = 1 */
 
-        /*
-         * Without this if/else conditional, NOBLANKS has no effect.
-         *
-         * For more information, see:
-         *
-         * https://rt.cpan.org/Ticket/Display.html?id=76696
-         *
-         * */
-        if (parserOptions & XML_PARSE_NOBLANKS) {
-            xmlKeepBlanksDefault(0);
-        }
-        else {
-            xmlKeepBlanksDefault(1);
-        }
-
         item =  hv_fetch( real_obj, "XML_LIBXML_LINENUMBERS", 22, 0 );
         if ( item != NULL && SvTRUE(*item) ) {
             if (ctxt) ctxt->linenumbers = 1;
@@ -2382,6 +2367,9 @@ _parse_xml_chunk(self, svchunk, enc = &PL_sv_undef)
         int recover = 0;
         xmlChar * chunk;
         xmlNodePtr rv = NULL;
+        SV** item;
+        int parserOptions = 0;
+        int oldKeepBlanks;
         PREINIT_SAVED_ERROR
     INIT:
         if (SvPOK(enc)) {
@@ -2400,7 +2388,29 @@ _parse_xml_chunk(self, svchunk, enc = &PL_sv_undef)
         if ( chunk != NULL ) {
             recover = LibXML_get_recover(real_obj);
 
+            item = hv_fetch( real_obj, "XML_LIBXML_PARSER_OPTIONS", 25, 0 );
+            if (item != NULL && SvOK(*item)) parserOptions = sv_2iv(*item);
+
+            /*
+             * Without this if/else conditional, NOBLANKS has no effect.
+             *
+             * For more information, see:
+             *
+             * https://rt.cpan.org/Ticket/Display.html?id=76696
+             *
+             * This hack should be removed once libxml2 offers a better
+             * API. See https://gitlab.gnome.org/GNOME/libxml2/-/issues/727
+             */
+            if (parserOptions & XML_PARSE_NOBLANKS) {
+                oldKeepBlanks = xmlKeepBlanksDefault(0);
+            }
+            else {
+                oldKeepBlanks = xmlKeepBlanksDefault(1);
+            }
+
             rv = domReadWellBalancedString( NULL, chunk, recover );
+
+            xmlKeepBlanksDefault(oldKeepBlanks);
 
             if ( rv != NULL ) {
                 xmlNodePtr fragment= NULL;
@@ -2456,6 +2466,9 @@ _parse_sax_xml_chunk(self, svchunk, enc = &PL_sv_undef)
         int retCode              = -1;
         xmlNodePtr nodes         = NULL;
         xmlSAXHandlerPtr handler = NULL;
+        SV** item;
+        int parserOptions = 0;
+        int oldKeepBlanks;
         PREINIT_SAVED_ERROR
     INIT:
         if (SvPOK(enc)) {
@@ -2487,12 +2500,34 @@ _parse_sax_xml_chunk(self, svchunk, enc = &PL_sv_undef)
             PmmSAXInitContext( ctxt, self, saved_error );
             handler = PSaxGetHandler();
 
+            item = hv_fetch( real_obj, "XML_LIBXML_PARSER_OPTIONS", 25, 0 );
+            if (item != NULL && SvOK(*item)) parserOptions = sv_2iv(*item);
+
+            /*
+             * Without this if/else conditional, NOBLANKS has no effect.
+             *
+             * For more information, see:
+             *
+             * https://rt.cpan.org/Ticket/Display.html?id=76696
+             *
+             * This hack should be removed once libxml2 offers a better
+             * API. See https://gitlab.gnome.org/GNOME/libxml2/-/issues/727
+             */
+            if (parserOptions & XML_PARSE_NOBLANKS) {
+                oldKeepBlanks = xmlKeepBlanksDefault(0);
+            }
+            else {
+                oldKeepBlanks = xmlKeepBlanksDefault(1);
+            }
+
             retCode = xmlParseBalancedChunkMemory( NULL,
                                                    handler,
                                                    ctxt,
                                                    0,
                                                    chunk,
                                                    &nodes );
+
+            xmlKeepBlanksDefault(oldKeepBlanks);
 
             xmlFree( handler );
             PmmSAXCloseContext(ctxt);

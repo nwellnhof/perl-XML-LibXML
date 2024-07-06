@@ -903,7 +903,7 @@ LibXML_load_external_entity(
  * **************************************************************** */
 
 static HV*
-LibXML_init_parser( SV * self, xmlParserCtxtPtr ctxt ) {
+LibXML_init_parser( SV * self, xmlParserCtxtPtr ctxt, int isPush ) {
     /* we fetch all switches and callbacks from the hash */
     HV* real_obj = NULL;
     SV** item    = NULL;
@@ -937,6 +937,11 @@ LibXML_init_parser( SV * self, xmlParserCtxtPtr ctxt ) {
         if ((parserOptions & XML_PARSE_DTDLOAD) == 0) {
             parserOptions &= ~(XML_PARSE_DTDVALID | XML_PARSE_DTDATTR | XML_PARSE_NOENT );
         }
+#if LIBXML_VERSION > 20600
+        if (isPush) {
+	    parserOptions |= XML_PARSE_NODICT;
+        }
+#endif
         if (ctxt) xmlCtxtUseOptions(ctxt, parserOptions);
 
        if(EXTERNAL_ENTITY_LOADER_FUNC == NULL)
@@ -1722,7 +1727,7 @@ _parse_string(self, string, dir = &PL_sv_undef)
                 croak("Could not create memory parser context!\n");
             }
             xs_warn( "context created\n");
-            real_obj = LibXML_init_parser(self, ctxt);
+            real_obj = LibXML_init_parser(self, ctxt, 0);
             recover = LibXML_get_recover(real_obj);
 
 
@@ -1811,7 +1816,7 @@ _parse_sax_string(self, string)
                 croak("Could not create memory parser context!\n");
             }
             xs_warn( "context created\n");
-            real_obj = LibXML_init_parser(self, ctxt);
+            real_obj = LibXML_init_parser(self, ctxt, 0);
             recover = LibXML_get_recover(real_obj);
 
             PmmSAXInitContext( ctxt, self, saved_error );
@@ -1875,12 +1880,8 @@ _parse_fh(self, fh, dir = &PL_sv_undef)
                 croak("Could not create xml push parser context!\n");
             }
             xs_warn( "context created\n");
-            real_obj = LibXML_init_parser(self, ctxt);
+            real_obj = LibXML_init_parser(self, ctxt, /* isPush */ 1);
             recover = LibXML_get_recover(real_obj);
-#if LIBXML_VERSION > 20600
-	    /* dictionaries not support yet */
-	    ctxt->dictNames = 0;
-#endif
             if ( directory != NULL ) {
                 ctxt->directory = directory;
             }
@@ -1974,7 +1975,7 @@ _parse_sax_fh(self, fh, dir = &PL_sv_undef)
                 croak("Could not create xml push parser context!\n");
             }
             xs_warn( "context created\n");
-            real_obj = LibXML_init_parser(self, ctxt);
+            real_obj = LibXML_init_parser(self, ctxt, 0);
             recover = LibXML_get_recover(real_obj);
 
             if ( directory != NULL ) {
@@ -2039,7 +2040,7 @@ _parse_file(self, filename_sv)
                       filename, strerror(errno));
             }
             xs_warn( "context created\n");
-            real_obj = LibXML_init_parser(self, ctxt);
+            real_obj = LibXML_init_parser(self, ctxt, 0);
             recover = LibXML_get_recover(real_obj);
 
             ctxt->_private = (void*)self;
@@ -2103,7 +2104,7 @@ _parse_sax_file(self, filename_sv)
                       filename, strerror(errno));
             }
             xs_warn( "context created\n");
-            real_obj = LibXML_init_parser(self, ctxt);
+            real_obj = LibXML_init_parser(self, ctxt, 0);
             recover = LibXML_get_recover(real_obj);
 
             ctxt->sax = PSaxGetHandler();
@@ -2158,7 +2159,7 @@ _parse_html_string(self, string, svURL, svEncoding, options = 0)
     CODE:
         RETVAL = &PL_sv_undef;
         INIT_ERROR_HANDLER;
-        real_obj = LibXML_init_parser(self,NULL);
+        real_obj = LibXML_init_parser(self,NULL,0);
         if (encoding == NULL && SvUTF8( string )) {
 	  encoding = "UTF-8";
         }
@@ -2222,7 +2223,7 @@ _parse_html_file(self, filename_sv, svURL, svEncoding, options = 0)
     CODE:
         RETVAL = &PL_sv_undef;
         INIT_ERROR_HANDLER;
-        real_obj = LibXML_init_parser(self,NULL);
+        real_obj = LibXML_init_parser(self,NULL,0);
         if (options & HTML_PARSE_RECOVER) {
           recover = ((options & HTML_PARSE_NOERROR) ? 2 : 1);
         }
@@ -2281,7 +2282,7 @@ _parse_html_fh(self, fh, svURL, svEncoding, options = 0)
     CODE:
         RETVAL = &PL_sv_undef;
         INIT_ERROR_HANDLER;
-        real_obj = LibXML_init_parser(self,NULL);
+        real_obj = LibXML_init_parser(self,NULL,0);
         if (options & HTML_PARSE_RECOVER) {
           recover = ((options & HTML_PARSE_NOERROR) ? 2 : 1);
         }
@@ -2373,7 +2374,7 @@ _parse_xml_chunk(self, svchunk, enc = &PL_sv_undef)
     CODE:
         RETVAL = &PL_sv_undef;
         INIT_ERROR_HANDLER;
-        real_obj = LibXML_init_parser(self,NULL);
+        real_obj = LibXML_init_parser(self,NULL,0);
 
         chunk = Sv2C(svchunk, (const xmlChar*)encoding);
 
@@ -2486,7 +2487,7 @@ _parse_sax_xml_chunk(self, svchunk, enc = &PL_sv_undef)
                 croak("Could not create memory parser context!\n");
             }
             xs_warn( "context created\n");
-            real_obj = LibXML_init_parser(self,ctxt);
+            real_obj = LibXML_init_parser(self,ctxt,0);
             recover = LibXML_get_recover(real_obj);
 
             PmmSAXInitContext( ctxt, self, saved_error );
@@ -2556,7 +2557,7 @@ _processXIncludes(self, doc, options=0)
     CODE:
         RETVAL = 0;
         INIT_ERROR_HANDLER;
-        real_obj = LibXML_init_parser(self,NULL);
+        real_obj = LibXML_init_parser(self,NULL,0);
         recover = LibXML_get_recover(real_obj);
 
         RETVAL = xmlXIncludeProcessFlags(real_doc,options);
@@ -2589,7 +2590,7 @@ _start_push(self, with_sax=0)
 
         /* create empty context */
         ctxt = xmlCreatePushParserCtxt( NULL, NULL, NULL, 0, NULL );
-        real_obj = LibXML_init_parser(self,ctxt);
+        real_obj = LibXML_init_parser(self,ctxt,0);
         recover = LibXML_get_recover(real_obj);
         if ( with_sax == 1 ) {
 	    PmmSAXInitContext( ctxt, self, saved_error );
@@ -2632,7 +2633,7 @@ _push(self, pctxt, data)
     CODE:
         RETVAL = 0;
         INIT_ERROR_HANDLER;
-        real_obj = LibXML_init_parser(self,NULL);
+        real_obj = LibXML_init_parser(self,NULL,0);
         recover = LibXML_get_recover(real_obj);
 
         xmlParseChunk(ctxt, (const char *)chunk, len, 0);
@@ -2669,7 +2670,7 @@ _end_push(self, pctxt, restore)
     CODE:
         RETVAL = &PL_sv_undef;
         INIT_ERROR_HANDLER;
-        real_obj = LibXML_init_parser(self,NULL);
+        real_obj = LibXML_init_parser(self,NULL,0);
 
         xmlParseChunk(ctxt, "", 0, 1); /* finish the parse */
         xs_warn( "Finished with push parser\n" );
@@ -2715,7 +2716,7 @@ _end_sax_push(self, pctxt)
         }
     CODE:
         INIT_ERROR_HANDLER;
-        real_obj = LibXML_init_parser(self,NULL);
+        real_obj = LibXML_init_parser(self,NULL,0);
 
         xmlParseChunk(ctxt, "", 0, 1); /* finish the parse */
         xs_warn( "Finished with SAX push parser\n" );

@@ -7331,20 +7331,11 @@ parse_string(CLASS, str, ...)
                 croak("Parse of encoding %s failed", SvPV_nolen(encoding_sv));
             }
         }
-        buffer = xmlAllocParserInputBuffer(enc);
-        /* buffer = xmlParserInputBufferCreateMem(str, xmlStrlen(str), enc); */
-        if ( !buffer) {
-	    CLEANUP_ERROR_HANDLER;
-            REPORT_ERROR(1);
-            croak("cannot create buffer!\n" );
-	}
-        new_string = xmlStrdup((const xmlChar*)str);
-        xmlParserInputBufferPush(buffer, xmlStrlen(new_string), (const char*)new_string);
+        buffer = xmlParserInputBufferCreateStatic(str, xmlStrlen(str), enc);
 
         res = xmlIOParseDTD(NULL, buffer, enc);
 
         /* NOTE: xmlIOParseDTD is documented to free its InputBuffer */
-        xmlFree(new_string);
         if ( res && LibXML_will_die_ctx(saved_error, 0) )
 	    xmlFreeDtd( res );
 	CLEANUP_ERROR_HANDLER;

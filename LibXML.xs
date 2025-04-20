@@ -52,6 +52,7 @@ extern "C" {
 #include <libxml/xmlerror.h>
 #include <libxml/xinclude.h>
 #include <libxml/valid.h>
+#include <libxml/xmlsave.h>
 
 #ifdef LIBXML_PATTERN_ENABLED
 #include <libxml/pattern.h>
@@ -763,7 +764,7 @@ LibXML_input_close(void * context)
 }
 
 static int
-LibXML_output_write_handler(void * ioref, char * buffer, int len)
+LibXML_output_write_handler(void * ioref, const char * buffer, int len)
 {
     if ( buffer != NULL && len > 0) {
         dTHX;
@@ -2903,17 +2904,19 @@ _toString(self, format=0)
         xmlDocPtr self
         int format
     PREINIT:
-        xmlChar *result=NULL;
+        xmlBuffer *buffer;
+        xmlSaveCtxt *save;
+        int save_opts = 0;
+        const xmlChar *result = NULL;
         int len=0;
         SV* internalFlag = NULL;
-        int oldTagFlag = xmlSaveNoEmptyTags;
         xmlDtdPtr intSubset = NULL;
         /* PREINIT_SAVED_ERROR */
     CODE:
         RETVAL = &PL_sv_undef;
         internalFlag = get_sv("XML::LibXML::setTagCompression", 0);
-        if( internalFlag ) {
-            xmlSaveNoEmptyTags = SvTRUE(internalFlag);
+        if ( internalFlag && SvTRUE(internalFlag) ) {
+            save_opts |= XML_SAVE_NO_EMPTY;
         }
 
         internalFlag = get_sv("XML::LibXML::skipDTD", 0);
@@ -2927,15 +2930,16 @@ _toString(self, format=0)
 
         if ( format <= 0 ) {
             xs_warn( "use no formated toString!" );
-            xmlDocDumpMemory(self, &result, &len);
         }
         else {
-            int t_indent_var = xmlIndentTreeOutput;
             xs_warn( "use formated toString!" );
-            xmlIndentTreeOutput = 1;
-            xmlDocDumpFormatMemory( self, &result, &len, format );
-            xmlIndentTreeOutput = t_indent_var;
+            save_opts |= XML_SAVE_FORMAT;
         }
+
+        buffer = xmlBufferCreate();
+        save = xmlSaveToBuffer(buffer, self->encoding, save_opts);
+        xmlSaveDoc(save, self);
+        xmlSaveClose(save);
 
         if ( intSubset != NULL ) {
             if (self->children == NULL) {
@@ -2946,9 +2950,10 @@ _toString(self, format=0)
             }
         }
 
-        xmlSaveNoEmptyTags = oldTagFlag;
-
         /* REPORT_ERROR(0); */
+
+        len = xmlBufferLength(buffer);
+        result = xmlBufferContent(buffer);
 
         if (result == NULL) {
             xs_warn("Failed to convert doc to string");
@@ -2957,8 +2962,9 @@ _toString(self, format=0)
             /* warn("%s, %d\n",result, len); */
             RETVAL = newSVpvn( (const char *)result, len );
 	    /* C2Sv( result, self->encoding ); */
-            xmlFree(result);
         }
+
+        xmlBufferFree(buffer);
     OUTPUT:
         RETVAL
 
@@ -2968,18 +2974,15 @@ toFH( self, filehandler, format=0 )
         SV * filehandler
         int format
     PREINIT:
-        xmlOutputBufferPtr buffer;
-        const xmlChar * encoding = NULL;
-        xmlCharEncodingHandlerPtr handler = NULL;
+        xmlSaveCtxt *save;
+        int save_opts = 0;
         SV* internalFlag = NULL;
-        int oldTagFlag = xmlSaveNoEmptyTags;
         xmlDtdPtr intSubset = NULL;
-        int t_indent_var = xmlIndentTreeOutput;
         PREINIT_SAVED_ERROR
     CODE:
         internalFlag = get_sv("XML::LibXML::setTagCompression", 0);
-        if( internalFlag ) {
-            xmlSaveNoEmptyTags = SvTRUE(internalFlag);
+        if ( internalFlag && SvTRUE(internalFlag) ) {
+            save_opts |= XML_SAVE_NO_EMPTY;
         }
 
         internalFlag = get_sv("XML::LibXML::skipDTD", 0);
@@ -2990,36 +2993,21 @@ toFH( self, filehandler, format=0 )
         }
 
         xmlRegisterDefaultOutputCallbacks();
-        encoding = (self)->encoding;
-        if ( encoding != NULL ) {
-            if ( xmlParseCharEncoding((const char*)encoding) != XML_CHAR_ENCODING_UTF8) {
-                handler = xmlFindCharEncodingHandler((const char*)encoding);
-            }
-
-        }
-        else {
-            xs_warn("no encoding?");
-        }
-
-        buffer = xmlOutputBufferCreateIO( (xmlOutputWriteCallback) &LibXML_output_write_handler,
-                                          (xmlOutputCloseCallback)&LibXML_output_close_handler,
-                                          filehandler,
-                                          handler );
 
         if ( format <= 0 ) {
             format = 0;
-            xmlIndentTreeOutput = 0;
         }
         else {
-            xmlIndentTreeOutput = 1;
+            save_opts |= XML_SAVE_FORMAT;
         }
 
         INIT_ERROR_HANDLER;
 
-        RETVAL = xmlSaveFormatFileTo( buffer,
-                                      self,
-                                      (const char *) encoding,
-                                      format);
+        save = xmlSaveToIO(LibXML_output_write_handler,
+                           LibXML_output_close_handler, filehandler,
+                           self->encoding, save_opts);
+        xmlSaveDoc(save, self);
+        RETVAL = xmlSaveClose(save);
 
         if ( intSubset != NULL ) {
             if (self->children == NULL) {
@@ -3029,9 +3017,6 @@ toFH( self, filehandler, format=0 )
                 xmlAddPrevSibling(self->children, INT2PTR(xmlNodePtr,intSubset));
             }
         }
-
-        xmlIndentTreeOutput = t_indent_var;
-        xmlSaveNoEmptyTags = oldTagFlag;
         CLEANUP_ERROR_HANDLER;
         REPORT_ERROR(0);
     OUTPUT:
@@ -3043,31 +3028,29 @@ toFile( self, filename, format=0 )
         char * filename
         int format
     PREINIT:
+        xmlSaveCtxt *save;
+        int save_opts = 0;
         SV* internalFlag = NULL;
-        int oldTagFlag = xmlSaveNoEmptyTags;
         PREINIT_SAVED_ERROR
     CODE:
         internalFlag = get_sv("XML::LibXML::setTagCompression", 0);
-        if( internalFlag ) {
-            xmlSaveNoEmptyTags = SvTRUE(internalFlag);
+        if ( internalFlag && SvTRUE(internalFlag) ) {
+            save_opts |= XML_SAVE_NO_EMPTY;
         }
 
         INIT_ERROR_HANDLER;
 
         if ( format <= 0 ) {
             xs_warn( "use no formated toFile!" );
-            RETVAL = xmlSaveFile( filename, self );
         }
         else {
-            int t_indent_var = xmlIndentTreeOutput;
-            xmlIndentTreeOutput = 1;
-            RETVAL =xmlSaveFormatFile( filename,
-                                       self,
-                                       format);
-            xmlIndentTreeOutput = t_indent_var;
+            save_opts |= XML_SAVE_FORMAT;
         }
 
-        xmlSaveNoEmptyTags = oldTagFlag;
+        save = xmlSaveToFilename(filename, self->encoding, save_opts);
+        xmlSaveDoc(save, self);
+        xmlSaveClose(save);
+
         CLEANUP_ERROR_HANDLER;
         REPORT_ERROR(0);
 
@@ -5259,35 +5242,28 @@ toString( self, format=0, useDomEncoding = &PL_sv_undef )
         XML::LibXML::Node::serialize = 1
     PREINIT:
         xmlBufferPtr buffer;
+        xmlSaveCtxt *save;
+        int save_opts = 0;
         const xmlChar *ret = NULL;
         SV* internalFlag = NULL;
-        int oldTagFlag = xmlSaveNoEmptyTags;
     CODE:
         PERL_UNUSED_VAR(ix);
         internalFlag = get_sv("XML::LibXML::setTagCompression", 0);
 
-        if ( internalFlag ) {
-            xmlSaveNoEmptyTags = SvTRUE(internalFlag);
+        if ( internalFlag && SvTRUE(internalFlag) ) {
+            save_opts |= XML_SAVE_NO_EMPTY;
         }
         buffer = xmlBufferCreate();
 
-        if ( format <= 0 ) {
-            xmlNodeDump( buffer,
-                         self->doc,
-                         self, 0, format);
+        if ( format > 0 ) {
+            save_opts |= XML_SAVE_FORMAT;
         }
-        else {
-            int t_indent_var = xmlIndentTreeOutput;
-            xmlIndentTreeOutput = 1;
-            xmlNodeDump( buffer,
-                         self->doc,
-                         self, 0, format);
-            xmlIndentTreeOutput = t_indent_var;
-        }
+
+        save = xmlSaveToBuffer(buffer, "UTF-8", save_opts);
+        xmlSaveTree(save, self);
+        xmlSaveClose(save);
 
         ret = xmlBufferContent( buffer );
-
-        xmlSaveNoEmptyTags = oldTagFlag;
 
         if ( ret != NULL ) {
             if ( useDomEncoding != &PL_sv_undef && SvTRUE(useDomEncoding) ) {

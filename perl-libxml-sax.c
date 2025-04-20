@@ -859,19 +859,6 @@ PmmUpdateLocator( xmlParserCtxtPtr ctxt )
 
     (void) hv_store(sax->locator, "ColumnNumber", 12,
          newSViv(ctxt->input->col), 0);
-
-    encoding = ctxt->input->encoding;
-    version = ctxt->input->version;
-
-    if ( encoding != NULL && XML_STR_NOT_EMPTY( encoding ) ) {
-      (void) hv_store(sax->locator, "Encoding", 8,
-           newSVpv((char *)encoding, 0), 0);
-    }
-
-    if ( version != NULL && XML_STR_NOT_EMPTY( version ) ) {
-      (void) hv_store(sax->locator, "XMLVersion", 10,
-           newSVpv((char *)version, 0), 0);
-    }
 }
 
 int
@@ -926,12 +913,35 @@ PSaxStartDocument(void * ctx)
     dTHX;
     HV* empty;
     SV * handler         = sax->handler;
+    const xmlChar *version;
+    const xmlChar *encoding;
 
     SV * rv;
     if ( handler != NULL ) {
 
         dSP;
+
         PmmUpdateLocator(ctx);
+
+#if LIBXML_VERSION >= 21400
+        version = xmlCtxtGetVersion(ctxt);
+        encoding = xmlCtxtGetDeclaredEncoding(ctxt);
+#else
+        version = ctxt->input->version;
+        encoding = ctxt->input->encoding;
+#endif
+
+        if ( sax->locator != NULL ) {
+            if ( version != NULL && XML_STR_NOT_EMPTY( version ) ) {
+              (void) hv_store(sax->locator, "XMLVersion", 10,
+                   newSVpv((char *)version, 0), 0);
+            }
+
+            if ( encoding != NULL && XML_STR_NOT_EMPTY( encoding ) ) {
+              (void) hv_store(sax->locator, "Encoding", 8,
+                   newSVpv((char *)encoding, 0), 0);
+            }
+        }
 
         ENTER;
         SAVETMPS;
@@ -955,18 +965,18 @@ PSaxStartDocument(void * ctx)
         XPUSHs(handler);
 
         empty = newHV();
-        if ( ctxt->version != NULL ) {
+        if ( version != NULL ) {
             (void) hv_store(empty, "Version", 7,
-                     _C2Sv(ctxt->version, NULL), VersionHash);
+                     _C2Sv(version, NULL), VersionHash);
         }
         else {
             (void) hv_store(empty, "Version", 7,
                      _C2Sv((const xmlChar *)"1.0", NULL), VersionHash);
         }
 
-        if ( ctxt->input->encoding != NULL ) {
+        if ( encoding != NULL ) {
             (void) hv_store(empty, "Encoding", 8,
-                     _C2Sv(ctxt->input->encoding, NULL), EncodingHash);
+                     _C2Sv(encoding, NULL), EncodingHash);
         }
 
         rv = newRV_noinc((SV*)empty);

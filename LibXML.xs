@@ -935,6 +935,8 @@ LibXML_init_parser( SV * self, xmlParserCtxtPtr ctxt, int isPush ) {
 #endif
         if (ctxt) xmlCtxtUseOptions(ctxt, parserOptions);
 
+        LibXML_old_ext_ent_loader =  NULL;
+
        if(EXTERNAL_ENTITY_LOADER_FUNC == NULL)
        {
             item = hv_fetch(real_obj, "ext_ent_handler", 15, 0);
@@ -942,6 +944,7 @@ LibXML_init_parser( SV * self, xmlParserCtxtPtr ctxt, int isPush ) {
                 LibXML_old_ext_ent_loader =  xmlGetExternalEntityLoader();
                 xmlSetExternalEntityLoader( (xmlExternalEntityLoader)LibXML_load_external_entity );
             }
+#if defined(LIBXML_HTTP_ENABLED) || defined(LIBXML_FTP_ENABLED)
             else
              {
                 if (parserOptions & XML_PARSE_NONET)
@@ -949,8 +952,8 @@ LibXML_init_parser( SV * self, xmlParserCtxtPtr ctxt, int isPush ) {
                     LibXML_old_ext_ent_loader = xmlGetExternalEntityLoader();
                     xmlSetExternalEntityLoader( xmlNoNetExternalEntityLoader );
                 }
-                /* LibXML_old_ext_ent_loader =  NULL; */
             }
+#endif
        }
     }
 
@@ -1628,6 +1631,17 @@ HAVE_THREAD_SUPPORT()
     CODE:
 #ifdef XML_LIBXML_THREADS
         RETVAL = (PmmUSEREGISTRY ? 1 : 0);
+#else
+        RETVAL = 0;
+#endif
+    OUTPUT:
+        RETVAL
+
+int
+HAVE_NETWORK()
+    CODE:
+#if defined(LIBXML_HTTP_ENABLED) || defined(LIBXML_FTP_ENABLED)
+        RETVAL = 1;
 #else
         RETVAL = 0;
 #endif
@@ -7383,16 +7397,17 @@ parse_location( self, url, parser_options = 0, recover = FALSE )
                                   (xmlRelaxNGValidityWarningFunc)LibXML_error_handler_ctx,
                                   saved_error );
 #endif
-
+#if defined(LIBXML_HTTP_ENABLED) || defined(LIBXML_FTP_ENABLED)
         if ( EXTERNAL_ENTITY_LOADER_FUNC == NULL && (parser_options & XML_PARSE_NONET) ) {
             old_ext_ent_loader = xmlGetExternalEntityLoader();
             xmlSetExternalEntityLoader( xmlNoNetExternalEntityLoader );
         }
-
+#endif
         RETVAL = xmlRelaxNGParse( rngctxt );
-
+#if defined(LIBXML_HTTP_ENABLED) || defined(LIBXML_FTP_ENABLED)
         if ( EXTERNAL_ENTITY_LOADER_FUNC == NULL && (parser_options & XML_PARSE_NONET) )
             xmlSetExternalEntityLoader( (xmlExternalEntityLoader)old_ext_ent_loader );
+#endif
 
         xmlRelaxNGFreeParserCtxt( rngctxt );
 	CLEANUP_ERROR_HANDLER;
@@ -7432,16 +7447,17 @@ parse_buffer( self, perlstring, parser_options = 0, recover = FALSE )
                                   (xmlRelaxNGValidityWarningFunc)LibXML_error_handler_ctx,
                                   saved_error );
 #endif
-
+#if defined(LIBXML_HTTP_ENABLED) || defined(LIBXML_FTP_ENABLED)
         if ( EXTERNAL_ENTITY_LOADER_FUNC == NULL && (parser_options & XML_PARSE_NONET) ) {
             old_ext_ent_loader = xmlGetExternalEntityLoader();
             xmlSetExternalEntityLoader( xmlNoNetExternalEntityLoader );
         }
-
+#endif
         RETVAL = xmlRelaxNGParse( rngctxt );
-
+#if defined(LIBXML_HTTP_ENABLED) || defined(LIBXML_FTP_ENABLED)
         if ( EXTERNAL_ENTITY_LOADER_FUNC == NULL && (parser_options & XML_PARSE_NONET) )
             xmlSetExternalEntityLoader( (xmlExternalEntityLoader)old_ext_ent_loader );
+#endif
 
         xmlRelaxNGFreeParserCtxt( rngctxt );
 	CLEANUP_ERROR_HANDLER;
@@ -7474,16 +7490,17 @@ parse_document( self, doc, parser_options = 0, recover = FALSE )
                                   (xmlRelaxNGValidityWarningFunc)LibXML_error_handler_ctx,
                                   saved_error );
 #endif
-
+#if defined(LIBXML_HTTP_ENABLED) || defined(LIBXML_FTP_ENABLED)
         if ( EXTERNAL_ENTITY_LOADER_FUNC == NULL && (parser_options & XML_PARSE_NONET) ) {
             old_ext_ent_loader = xmlGetExternalEntityLoader();
             xmlSetExternalEntityLoader( xmlNoNetExternalEntityLoader );
         }
-
+#endif
         RETVAL = xmlRelaxNGParse( rngctxt );
-
+#if defined(LIBXML_HTTP_ENABLED) || defined(LIBXML_FTP_ENABLED)
         if ( EXTERNAL_ENTITY_LOADER_FUNC == NULL && (parser_options & XML_PARSE_NONET) )
             xmlSetExternalEntityLoader( (xmlExternalEntityLoader)old_ext_ent_loader );
+#endif
 
         xmlRelaxNGFreeParserCtxt( rngctxt );
 	CLEANUP_ERROR_HANDLER;
@@ -7573,16 +7590,17 @@ parse_location( self, url, parser_options = 0, recover = FALSE )
                                   (xmlSchemaValidityErrorFunc)LibXML_error_handler_ctx,
                                   (xmlSchemaValidityWarningFunc)LibXML_error_handler_ctx,
                                   saved_error );
-
+#if defined(LIBXML_HTTP_ENABLED) || defined(LIBXML_FTP_ENABLED)
         if ( EXTERNAL_ENTITY_LOADER_FUNC == NULL && (parser_options & XML_PARSE_NONET) ) {
             old_ext_ent_loader = xmlGetExternalEntityLoader();
             xmlSetExternalEntityLoader( xmlNoNetExternalEntityLoader );
         }
-
+#endif
         RETVAL = xmlSchemaParse( rngctxt );
-
+#if defined(LIBXML_HTTP_ENABLED) || defined(LIBXML_FTP_ENABLED)
         if ( EXTERNAL_ENTITY_LOADER_FUNC == NULL && (parser_options & XML_PARSE_NONET) )
             xmlSetExternalEntityLoader( (xmlExternalEntityLoader)old_ext_ent_loader );
+#endif
 
         xmlSchemaFreeParserCtxt( rngctxt );
 	CLEANUP_ERROR_HANDLER;
@@ -7623,16 +7641,17 @@ parse_buffer( self, perlstring, parser_options = 0, recover = FALSE )
                                   (xmlSchemaValidityErrorFunc)LibXML_error_handler_ctx,
                                   (xmlSchemaValidityWarningFunc)LibXML_error_handler_ctx,
                                   saved_error );
-
+#if defined(LIBXML_HTTP_ENABLED) || defined(LIBXML_FTP_ENABLED)
         if ( EXTERNAL_ENTITY_LOADER_FUNC == NULL && (parser_options & XML_PARSE_NONET) ) {
             old_ext_ent_loader = xmlGetExternalEntityLoader();
             xmlSetExternalEntityLoader( xmlNoNetExternalEntityLoader );
         }
-
+#endif
         RETVAL = xmlSchemaParse( rngctxt );
-
+#if defined(LIBXML_HTTP_ENABLED) || defined(LIBXML_FTP_ENABLED)
         if ( EXTERNAL_ENTITY_LOADER_FUNC == NULL && (parser_options & XML_PARSE_NONET) )
             xmlSetExternalEntityLoader( (xmlExternalEntityLoader)old_ext_ent_loader );
+#endif
 
         xmlSchemaFreeParserCtxt( rngctxt );
         CLEANUP_ERROR_HANDLER;
